@@ -1,0 +1,16 @@
+# Copyright (c) Harikrishnan Prabakaran (harikrishnanprabakaran@gmail.com)
+# Minnal regression schedule (parallel groups)
+#
+# Place your SQL files under:
+#   - sql/       (e.g., sql/mytest.sql)
+# And expected outputs under:
+#   - expected/  (e.g., expected/mytest.out)
+#
+# Reference tests by their basename (without .sql/.out).
+#
+# Syntax:
+#   test: testA testB ...       # run these tests concurrently
+#   test: testX                 # run this test serially (single test per line)
+#   ignore: testY               # skip this test if present
+
+test: minnal_version

@@ -1,0 +1,6 @@
+# Copyright (c) Harikrishnan Prabakaran (harikrishnanprabakaran@gmail.com)
+# minnal extension control file
+comment = 'Minnal: Analytics acceleration engine (extension + engine) for PostgreSQL'
+default_version = '0.1.0'
+module_pathname = '$libdir/minnal'
+relocatable = true

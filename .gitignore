@@ -1,0 +1,69 @@
+############################################
+# Baseline: ignore everything
+############################################
+*
+
+##############################
+# Explicitly allow these files
+##############################
+!.gitignore
+!CMakePresets.json
+!.clang-format
+!.clang-tidy
+!AGENTS.md
+!README.md
+!LICENSE
+!engineering-plan-v1.md
+!mvcc-lsn-design.md
+!engine/RPC.md
+
+############################################
+# Directory traversal: only open engine/, extension/, cmake/, .github
+!/engine/
+!/engine/**/
+!/extension/
+!/extension/**/
+!/cmake/
+!/cmake/**/
+!/.github/
+!/.github/workflows
+
+
+############################################
+# CMake: keep root CMakeLists, and CMake files in /cmake, /extension, /engine
+############################################
+!/CMakeLists.txt
+!/cmake/**/*.cmake
+!/extension/**/CMakeLists.txt
+!/engine/**/CMakeLists.txt
+!/extension/**/*.cmake
+!/engine/**/*.cmake
+
+############################################
+# Source files: only .cpp and .hpp inside extension and engine
+############################################
+!/extension/**/*.cpp
+!/extension/**/*.hpp
+!/engine/**/*.cpp
+!/engine/**/*.hpp
+
+############################################
+# Minnal extension files
+############################################
+# Root SQL files starting with minnal-*.sql
+!/extension/minnal-*.sql
+!/extension/minnal.control
+
+############################################
+# Regression tests
+############################################
+!/extension/regress/**/*.sql
+!/extension/regress/**/*.sql.in
+!/extension/regress/**/*.data
+!/extension/regress/expected/**/*.out
+!/extension/regress/test_schedule
+
+############################################
+# Github Actions
+############################################
+!/.github/workflows/*.yml

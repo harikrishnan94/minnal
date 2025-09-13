@@ -1,0 +1,68 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * 0" # Weekly Sunday 00:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: CodeQL (C/C++)
+    runs-on: ubuntu-latest
+    env:
+      CMAKE_GENERATOR: Ninja
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install toolchain and PostgreSQL 17 dev headers so the build succeeds with -DPG_CONFIG
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build build-essential cmake software-properties-common wget gnupg lsb-release
+          # Add PGDG repo to get PostgreSQL 17
+          sudo install -d -m 0755 /usr/share/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          # Prefer 17, fallback to 16 then 15
+          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
+          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
+          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
+
+      - name: Locate pg_config
+        run: echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+
+      # Manual build so CodeQL can observe the compilation
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -G "${CMAKE_GENERATOR}" \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DPG_CONFIG="${PG_CONFIG}"
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Install
+        run: sudo cmake --install build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:cpp"

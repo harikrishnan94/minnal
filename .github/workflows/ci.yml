@@ -1,0 +1,366 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CMAKE_GENERATOR: Ninja
+
+jobs:
+  build-test:
+    name: Build & Test (${{ matrix.os }}, ${{ matrix.compiler }}, ${{ matrix.build_type }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        compiler: [gcc]
+        build_type: [Debug, RelWithDebInfo]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up LLVM (Clang 20)
+        if: matrix.compiler == 'clang'
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "20"
+
+      - name: Install Dependencies (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build ccache jq lcov gcovr software-properties-common wget gnupg lsb-release
+          # Add PGDG repo to get PostgreSQL 17
+          sudo install -d -m 0755 /usr/share/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          # Prefer 17, fallback to 16 then 15
+          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
+          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
+          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
+
+      - name: Install Dependencies (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew update
+          brew install ninja ccache jq postgresql@17
+          echo "$(brew --prefix ccache)/libexec" >> $GITHUB_PATH
+
+      - name: Locate pg_config (Linux/macOS)
+        shell: bash
+        run: |
+          if command -v pg_config &>/dev/null; then
+            echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            if brew list postgresql@17 &>/dev/null; then
+              echo "PG_CONFIG=$(brew --prefix postgresql@17)/bin/pg_config" >> $GITHUB_ENV
+            elif brew list postgresql@16 &>/dev/null; then
+              echo "PG_CONFIG=$(brew --prefix postgresql@16)/bin/pg_config" >> $GITHUB_ENV
+            else
+              echo "pg_config not found on macOS" >&2
+              exit 1
+            fi
+          else
+            echo "pg_config not found" >&2
+            exit 1
+          fi
+          echo "Using PG_CONFIG=${PG_CONFIG}"
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-${{ runner.arch }}-ccache-${{ matrix.compiler }}-${{ matrix.build_type }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-ccache-${{ matrix.compiler }}-${{ matrix.build_type }}-
+            ${{ runner.os }}-${{ runner.arch }}-ccache-${{ matrix.compiler }}-
+
+      - name: Configure (CMake)
+        shell: bash
+        run: |
+          ccache --zero-stats || true
+          ccache --max-size=500M || true
+          EXTRA_CFG+=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+          cmake -S . -B build \
+            -G "${CMAKE_GENERATOR}" \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            "${EXTRA_CFG[@]}"
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Install (Linux/macOS)
+        shell: bash
+        run: sudo cmake --install build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: ccache stats
+        if: always()
+        run: ccache --show-stats || true
+
+      - name: Upload build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/CMakeFiles/CMakeOutput.log
+            build/CMakeFiles/CMakeError.log
+          if-no-files-found: ignore
+
+  static-analysis:
+    name: Static Analysis (clang-format, clang-tidy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up LLVM (Clang 20)
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "20"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ccache jq software-properties-common wget gnupg lsb-release
+          # Add PGDG repo to get PostgreSQL 17
+          sudo install -d -m 0755 /usr/share/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
+          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
+          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
+
+      - name: Locate pg_config
+        run: echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
+
+      - name: Configure (to produce compile_commands.json)
+        run: |
+          cmake -S . -B build \
+            -G "${CMAKE_GENERATOR}" \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: clang-format check
+        shell: bash
+        run: |
+          mapfile -t FILES < <(git ls-files '*.c' '*.cc' '*.cpp' '*.h' '*.hh' '*.hpp')
+          if (( ${#FILES[@]} > 0 )); then
+            clang-format --version
+            clang-format -n --Werror "${FILES[@]}"
+          else
+            echo "No C/C++ files to format-check."
+          fi
+
+      - name: clang-tidy (compile_commands sources)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f build/compile_commands.json ]]; then
+            echo "compile_commands.json not found" >&2
+            exit 1
+          fi
+
+          # Resolve the clang-tidy binary from the installed LLVM toolchain (preferred), fallback to PATH.
+          CTIDY=""
+          if command -v llvm-config &>/dev/null; then
+            CTIDY="$(llvm-config --bindir)/clang-tidy"
+          fi
+          if [[ -z "${CTIDY}" || ! -x "${CTIDY}" ]]; then
+            CTIDY="$(command -v clang-tidy || true)"
+          fi
+          if [[ -z "${CTIDY}" || ! -x "${CTIDY}" ]]; then
+            echo "clang-tidy not found" >&2
+            exit 1
+          fi
+          echo "Using clang-tidy at: ${CTIDY}"
+
+          # Create filtered compile_commands.json with only repo files (exclude dependencies outside repo)
+          REPO_ROOT="$(git rev-parse --show-toplevel)"
+          mkdir -p build-tidy
+          jq --arg root "$REPO_ROOT" '
+            [ .[]
+              | . as $e
+              | select(
+                  ((if ($e.file | startswith("/")) then $e.file else ($e.directory + "/" + $e.file) end) | startswith($root + "/")) and
+                  ((if ($e.file | startswith("/")) then $e.file else ($e.directory + "/" + $e.file) end) | startswith($root + "/build/") | not) and
+                  ((if ($e.file | startswith("/")) then $e.file else ($e.directory + "/" + $e.file) end) | test("/third_party/") | not)
+                )
+              | $e
+            ]' build/compile_commands.json > build-tidy/compile_commands.json
+
+          # Prefer run-clang-tidy binary; fallback to Python script variants.
+          if command -v run-clang-tidy &>/dev/null; then
+            echo "Using run-clang-tidy"
+            run-clang-tidy -p build-tidy -j 4 -clang-tidy-binary "${CTIDY}"
+            exit $?
+          fi
+
+          if command -v run-clang-tidy.py &>/dev/null; then
+            echo "Using run-clang-tidy.py (PATH)"
+            run-clang-tidy.py -p build-tidy -j 2 -clang-tidy-binary "${CTIDY}"
+            exit $?
+          fi
+
+          if command -v llvm-config &>/dev/null; then
+            RCT_PY="$(llvm-config --prefix)/share/clang/run-clang-tidy.py"
+            if [[ -f "${RCT_PY}" ]]; then
+              echo "Using run-clang-tidy.py at ${RCT_PY}"
+              python3 "${RCT_PY}" -p build-tidy -j 2 -clang-tidy-binary "${CTIDY}"
+              exit $?
+            fi
+          fi
+
+          echo "run-clang-tidy not found (neither binary nor Python script)" >&2
+          exit 1
+
+  sanitizers:
+    name: Sanitizers ("${{ matrix.sanitizer }}", ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: build-test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+        sanitizer: [asan, tsan, ubsan]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ccache software-properties-common wget gnupg lsb-release
+          # Add PGDG repo to get PostgreSQL 17
+          sudo install -d -m 0755 /usr/share/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
+          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
+          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
+
+      - name: Locate pg_config
+        run: echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
+
+      - name: Configure with sanitizer
+        shell: bash
+        run: |
+          EXTRA_FLAGS=()
+          case "${{ matrix.sanitizer }}" in
+            asan)  EXTRA_FLAGS+=(-DMINNAL_ENABLE_ASAN=ON) ;;
+            tsan)  EXTRA_FLAGS+=(-DMINNAL_ENABLE_TSAN=ON) ;;
+            ubsan) EXTRA_FLAGS+=(-DMINNAL_ENABLE_UBSAN=ON) ;;
+          esac
+          cmake -S . -B build-san \
+            -G "${CMAKE_GENERATOR}" \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DPG_CONFIG="${PG_CONFIG}" \
+            "${EXTRA_FLAGS[@]}"
+
+      - name: Build (sanitizer)
+        run: cmake --build build-san -j
+
+      - name: Install (Linux/macOS) [sanitizer]
+        shell: bash
+        run: sudo cmake --install build-san
+
+      - name: Test (sanitizer)
+        run: ctest --test-dir build-san --output-on-failure
+
+  coverage:
+    name: Coverage (GCC, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: build-test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ccache gcc g++ lcov gcovr software-properties-common wget gnupg lsb-release
+          # Add PGDG repo to get PostgreSQL 17
+          sudo install -d -m 0755 /usr/share/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
+          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
+          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
+
+      - name: Locate pg_config
+        run: echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
+
+      - name: Configure (coverage flags)
+        run: |
+          cmake -S . -B build-cov \
+            -G "${CMAKE_GENERATOR}" \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_FLAGS="--coverage" \
+            -DCMAKE_CXX_FLAGS="--coverage" \
+            -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
+            -DCMAKE_SHARED_LINKER_FLAGS="--coverage"
+
+      - name: Build
+        run: cmake --build build-cov -j
+
+      - name: Install (Linux/macOS) [coverage]
+        shell: bash
+        run: sudo cmake --install build-cov
+
+      - name: Test
+        run: ctest --test-dir build-cov --output-on-failure
+
+      - name: Generate coverage report (gcovr)
+        run: |
+          gcovr -r . \
+            --exclude='build.*' \
+            --exclude='.*third_party.*' \
+            --xml-pretty -o coverage.xml || \
+          gcovr -r . --xml-pretty -o coverage.xml
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml-${{ matrix.os }}
+          path: coverage.xml
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+          verbose: true

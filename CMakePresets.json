@@ -1,0 +1,102 @@
+{
+    "version": 10,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 27,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_CXX_STANDARD": "23",
+                "MINNAL_WARNINGS_AS_ERRORS": "ON",
+                "MINNAL_ENABLE_UNITY": "OFF",
+                "MINNAL_ENABLE_IPO": "OFF",
+                "MINNAL_ENABLE_ASAN": "OFF",
+                "MINNAL_ENABLE_TSAN": "OFF",
+                "MINNAL_ENABLE_UBSAN": "OFF"
+            }
+        },
+        {
+            "name": "clang-debug",
+            "displayName": "Clang Debug",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            },
+            "environment": {
+                "CC": "clang",
+                "CXX": "clang++"
+            }
+        },
+        {
+            "name": "clang-asan",
+            "displayName": "Clang ASan",
+            "inherits": "clang-debug",
+            "cacheVariables": {
+                "MINNAL_ENABLE_ASAN": "ON"
+            }
+        },
+        {
+            "name": "clang-tsan",
+            "displayName": "Clang TSan",
+            "inherits": "clang-debug",
+            "cacheVariables": {
+                "MINNAL_ENABLE_TSAN": "ON"
+            }
+        },
+        {
+            "name": "gcc-debug",
+            "displayName": "GCC Debug",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            },
+            "environment": {
+                "CC": "gcc",
+                "CXX": "g++"
+            }
+        },
+        {
+            "name": "release",
+            "displayName": "Release (IPO/LTO)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "MINNAL_ENABLE_IPO": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "build",
+            "configurePreset": "clang-debug"
+        },
+        {
+            "name": "build-asan",
+            "configurePreset": "clang-asan"
+        },
+        {
+            "name": "build-release",
+            "configurePreset": "release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "test",
+            "configurePreset": "clang-debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ]
+}

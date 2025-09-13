@@ -1,0 +1,66 @@
+# Copyright (c) Harikrishnan Prabakaran (harikrishnanprabakaran@gmail.com)
+# .clang-tidy
+# Opinionated safety-first profile for C++23
+WarningsAsErrors: "*"
+FormatStyle: file
+HeaderFilterRegex: "^(src|engine|extension|include)/"
+ExtraArgs: ["-std=c++23"]
+
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  readability-*,
+  modernize-*,
+  cppcoreguidelines-*,
+  hicpp-*,
+  misc-*,
+  portability-*,
+  cert-*,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -readability-magic-numbers,
+  -cppcoreguidelines-non-private-member-variables-in-classes
+
+CheckOptions:
+  # Identifier naming (adjust to taste)
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.MethodCase
+    value: camelBack
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.PrivateMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.MemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.TemplateParameterCase
+    value: CamelCase
+
+  # Modernize helpers
+  - key: modernize-loop-convert.MinConfidence
+    value: reasonable
+  - key: modernize-use-nullptr.NullMacros
+    value: "NULL"
+
+  # Prefer braced init & avoid implicit narrowing
+  - key: modernize-avoid-c-arrays.IgnoreSSizeT
+    value: "false"

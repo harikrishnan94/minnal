@@ -1,0 +1,64 @@
+# Copyright (c) Harikrishnan Prabakaran (harikrishnanprabakaran@gmail.com)
+# .clang-format
+# Base: LLVM with low-diff, high-readability tweaks and explicit include grouping.
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: Latest
+
+# Line width & indentation
+ColumnLimit: 100
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+
+# Minimal-diff lists: one-per-line wrapping avoids churn when adding/removing items
+BinPackParameters: false
+BinPackArguments: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+
+# Reduce diff churn from comment reflow and alignment
+ReflowComments: true
+AlignTrailingComments: true
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: 1
+CommentPragmas: '^\s*([@\\](brief|param|tparam|return|retval|note|warning|bug|todo|sa|see|ingroup|deprecated|since|code|endcode))\b|^\s*IWYU pragma:|^\s*NOLINT'
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+# Includes
+SortIncludes: true
+IncludeBlocks: Regroup
+# Use clang-format's default IncludeIsMainRegex so the corresponding header for a .cpp is placed first.
+
+# Include order:
+#  1) main header (auto-detected by clang-format)
+#  2) C/C++ standard libraries (Group 1)
+#  3) Third-party libraries (Group 2)
+#  4) "postgres.h"
+#  5) other postgres headers
+#  6) project headers
+IncludeCategories:
+  # 2) Standard/system headers: angle-includes without a path
+  - Regex: "^<[^/<>]+>$"
+    Priority: 2
+
+  # 3) Third-party libraries:
+  #    - angle-includes with a path component
+  #    - or known third-party single-token headers
+  - Regex: "^<[^>]+/[^>]+>$"
+    Priority: 3
+  - Regex: '^<(absl|benchmark|boost|cereal|fmt|glog|gflags|spdlog|gtest|gmock|Eigen|openssl|curl|uv|nlohmann|rapidjson|re2|protobuf|grpc|arrow|folly|tbb|zlib|yaml-cpp|rocksdb|leveldb|sqlite3|mysql|mariadb|opencv|libxml2|xxhash|simdjson|duckdb|libuv|hiredis|redis|capnp|flatbuffers|poco)(/.*|\.h)>$'
+    Priority: 3
+
+  # 4) Exact postgres.h
+  - Regex: '^"postgres\.h"$'
+    Priority: 4
+
+  # 5) Other PostgreSQL headers (common subtrees + specific single-token headers)
+  - Regex: '^"(access|bootstrap|catalog|commands|common|executor|foreign|libpq|mb|nodes|optimizer|parser|partitioning|port|postmaster|regex|replication|rewrite|storage|tcop|tsearch|utils)/[^"]+"$|^"(fmgr|miscadmin)\.h"$'
+    Priority: 5
+
+  # 6) Project headers: remaining quoted includes
+  - Regex: '^".*"$'
+    Priority: 6
