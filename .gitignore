@@ -27,6 +27,8 @@
 !/cmake/**/
 !/.github/
 !/.github/workflows
+!/.github/actions/
+!/.github/actions/**/
 
 
 ############################################
@@ -67,3 +69,5 @@
 # Github Actions
 ############################################
 !/.github/workflows/*.yml
+!/.github/actions/**/*.yml
+!/.github/actions/**/*.yaml

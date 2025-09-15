@@ -17,65 +17,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
-        compiler: [gcc]
-        build_type: [Debug, RelWithDebInfo]
+        include:
+          - os: ubuntu-24.04
+            compiler: gcc
+            build_type: Debug
+          - os: ubuntu-24.04
+            compiler: gcc
+            build_type: RelWithDebInfo
+          - os: ubuntu-24.04-arm
+            compiler: gcc
+            build_type: Debug
+          - os: ubuntu-24.04-arm
+            compiler: gcc
+            build_type: RelWithDebInfo
+          - os: macos-latest
+            compiler: clang
+            build_type: Debug
+          - os: macos-latest
+            compiler: clang
+            build_type: RelWithDebInfo
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up LLVM (Clang 20)
-        if: matrix.compiler == 'clang'
-        uses: KyleMayes/install-llvm-action@v2
+      - name: Setup compiler toolchain
+        uses: ./.github/actions/setup-compiler
         with:
-          version: "20"
+          compiler: ${{ matrix.compiler }}
+          gcc-version: "14"
+          llvm-version: "20"
 
-      - name: Install Dependencies (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y \
-            ninja-build ccache jq lcov gcovr software-properties-common wget gnupg lsb-release
-          # Add PGDG repo to get PostgreSQL 17
-          sudo install -d -m 0755 /usr/share/keyrings
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
-          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update
-          # Prefer 17, fallback to 16 then 15
-          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
-          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
-          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
-
-      - name: Install Dependencies (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          set -euo pipefail
-          brew update
-          brew install ninja ccache jq postgresql@17
-          echo "$(brew --prefix ccache)/libexec" >> $GITHUB_PATH
-
-      - name: Locate pg_config (Linux/macOS)
-        shell: bash
-        run: |
-          if command -v pg_config &>/dev/null; then
-            echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            if brew list postgresql@17 &>/dev/null; then
-              echo "PG_CONFIG=$(brew --prefix postgresql@17)/bin/pg_config" >> $GITHUB_ENV
-            elif brew list postgresql@16 &>/dev/null; then
-              echo "PG_CONFIG=$(brew --prefix postgresql@16)/bin/pg_config" >> $GITHUB_ENV
-            else
-              echo "pg_config not found on macOS" >&2
-              exit 1
-            fi
-          else
-            echo "pg_config not found" >&2
-            exit 1
-          fi
-          echo "Using PG_CONFIG=${PG_CONFIG}"
+      - name: Setup PostgreSQL (headers + pg_config)
+        uses: ./.github/actions/setup-postgres
+        with:
+          pg-major: "17"
 
       - name: Cache ccache
         uses: actions/cache@v4
@@ -96,6 +71,8 @@ jobs:
             -G "${CMAKE_GENERATOR}" \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_COMPILER="${CC}" \
+            -DCMAKE_CXX_COMPILER="${CXX}" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             "${EXTRA_CFG[@]}"
 
@@ -126,7 +103,7 @@ jobs:
 
   static-analysis:
     name: Static Analysis (clang-format, clang-tidy)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -136,23 +113,10 @@ jobs:
         with:
           version: "20"
 
-      - name: Install dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y ninja-build ccache jq software-properties-common wget gnupg lsb-release
-          # Add PGDG repo to get PostgreSQL 17
-          sudo install -d -m 0755 /usr/share/keyrings
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
-          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update
-          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
-          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
-          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
-
-      - name: Locate pg_config
-        run: echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
+      - name: Setup PostgreSQL (headers + pg_config)
+        uses: ./.github/actions/setup-postgres
+        with:
+          pg-major: "17"
 
       - name: Configure (to produce compile_commands.json)
         run: |
@@ -244,29 +208,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
         sanitizer: [asan, tsan, ubsan]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y ninja-build ccache software-properties-common wget gnupg lsb-release
-          # Add PGDG repo to get PostgreSQL 17
-          sudo install -d -m 0755 /usr/share/keyrings
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
-          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update
-          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
-          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
-          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
+      - name: Setup compiler toolchain
+        uses: ./.github/actions/setup-compiler
+        with:
+          compiler: gcc
+          gcc-version: "14"
+          llvm-version: "20"
 
-      - name: Locate pg_config
-        run: echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
+      - name: Setup PostgreSQL (headers + pg_config)
+        uses: ./.github/actions/setup-postgres
+        with:
+          pg-major: "17"
 
       - name: Configure with sanitizer
         shell: bash
@@ -281,6 +239,8 @@ jobs:
             -G "${CMAKE_GENERATOR}" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_COMPILER="${CC}" \
+            -DCMAKE_CXX_COMPILER="${CXX}" \
             "${EXTRA_FLAGS[@]}"
 
       - name: Build (sanitizer)
@@ -300,28 +260,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Setup compiler toolchain
+        uses: ./.github/actions/setup-compiler
+        with:
+          compiler: gcc
+          gcc-version: "14"
+          llvm-version: "20"
+
+      - name: Setup PostgreSQL (headers + pg_config)
+        uses: ./.github/actions/setup-postgres
+        with:
+          pg-major: "17"
+
+      - name: Install coverage tools (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y ninja-build ccache gcc g++ lcov gcovr software-properties-common wget gnupg lsb-release
-          # Add PGDG repo to get PostgreSQL 17
-          sudo install -d -m 0755 /usr/share/keyrings
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
-          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update
-          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
-          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
-          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
-
-      - name: Locate pg_config
-        run: echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
+          sudo apt-get install -y lcov gcovr
 
       - name: Configure (coverage flags)
         run: |
@@ -329,6 +291,8 @@ jobs:
             -G "${CMAKE_GENERATOR}" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_COMPILER="${CC}" \
+            -DCMAKE_CXX_COMPILER="${CXX}" \
             -DCMAKE_C_FLAGS="--coverage" \
             -DCMAKE_CXX_FLAGS="--coverage" \
             -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
@@ -347,10 +311,11 @@ jobs:
       - name: Generate coverage report (gcovr)
         run: |
           gcovr -r . \
+            --gcov-executable gcov-14 \
             --exclude='build.*' \
             --exclude='.*third_party.*' \
             --xml-pretty -o coverage.xml || \
-          gcovr -r . --xml-pretty -o coverage.xml
+          gcovr -r . --gcov-executable gcov-14 --xml-pretty -o coverage.xml
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
