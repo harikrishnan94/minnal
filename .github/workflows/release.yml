@@ -21,60 +21,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             compiler: gcc
           - os: macos-latest
-            compiler: gcc
+            compiler: clang
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Dependencies (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y ninja-build ccache build-essential cmake software-properties-common wget gnupg lsb-release
-          # Add PGDG repo to get PostgreSQL 17
-          sudo install -d -m 0755 /usr/share/keyrings
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
-          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update
-          # Prefer PostgreSQL 17, fallback to 16 then 15
-          sudo apt-get install -y postgresql-17 postgresql-server-dev-17 || \
-          sudo apt-get install -y postgresql-16 postgresql-server-dev-16 || \
-          sudo apt-get install -y postgresql-15 postgresql-server-dev-15
+      - name: Setup compiler toolchain
+        uses: ./.github/actions/setup-compiler
+        with:
+          compiler: ${{ matrix.compiler }}
+          gcc-version: "14"
+          llvm-version: "20"
 
-      - name: Install Dependencies (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          set -euo pipefail
-          brew update
-          brew install ninja ccache cmake postgresql@17
-          echo "$(brew --prefix ccache)/libexec" >> $GITHUB_PATH
-
-      - name: Locate pg_config (Linux/macOS)
-        shell: bash
-        run: |
-          if command -v pg_config &>/dev/null; then
-            echo "PG_CONFIG=$(command -v pg_config)" >> $GITHUB_ENV
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            if brew list postgresql@17 &>/dev/null; then
-              echo "PG_CONFIG=$(brew --prefix postgresql@17)/bin/pg_config" >> $GITHUB_ENV
-            elif brew list postgresql@16 &>/dev/null; then
-              echo "PG_CONFIG=$(brew --prefix postgresql@16)/bin/pg_config" >> $GITHUB_ENV
-            else
-              echo "pg_config not found on macOS" >&2
-              exit 1
-            fi
-          else
-            echo "pg_config not found" >&2
-            exit 1
-          fi
-          echo "Using PG_CONFIG=${PG_CONFIG}"
+      - name: Setup PostgreSQL (headers + pg_config)
+        uses: ./.github/actions/setup-postgres
+        with:
+          pg-major: "17"
 
       - name: Configure (Release + IPO/LTO)
         shell: bash
@@ -88,6 +54,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DMINNAL_ENABLE_IPO=ON \
             -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_COMPILER="${CC}" \
+            -DCMAKE_CXX_COMPILER="${CXX}" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             "${EXTRA_CFG[@]}"
 
