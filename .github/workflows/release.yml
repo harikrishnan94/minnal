@@ -37,10 +37,8 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y ninja-build ccache build-essential cmake software-properties-common wget gnupg lsb-release
-          # If gcc-15 isn’t present, add the toolchain PPA:
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install -y gcc-15 g++-15 libasan8 libtsan2 libubsan1
+          # Install GCC 15
+          sudo apt-get install -y gcc-15 g++-15
           # Add PGDG repo to get PostgreSQL 17
           sudo install -d -m 0755 /usr/share/keyrings
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
