@@ -1,8 +1,8 @@
 # pg_minnal ⚡️
 
 [![CI](https://github.com/harikrishnan94/minnal/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/harikrishnan94/minnal/actions/workflows/ci.yml)
-[![Linux x64](https://img.shields.io/github/actions/workflow/status/harikrishnan94/minnal/ci.yml?branch=main&job=Build%20%26%20Test%20%28ubuntu-24.04%2C%20gcc%2C%20RelWithDebInfo%29&label=Linux%20x64&logo=linux)](https://github.com/harikrishnan94/minnal/actions/workflows/ci.yml?query=branch%3Amain+Build%20%26%20Test%20%28ubuntu-24.04%2C%20gcc%2C%20RelWithDebInfo%29)
-[![Linux ARM](https://img.shields.io/github/actions/workflow/status/harikrishnan94/minnal/ci.yml?branch=main&job=Build%20%26%20Test%20%28ubuntu-24.04-arm%2C%20gcc%2C%20RelWithDebInfo%29&label=Linux%20ARM&logo=linux)](https://github.com/harikrishnan94/minnal/actions/workflows/ci.yml?query=branch%3Amain+Build%20%26%20Test%20%28ubuntu-24.04-arm%2C%20gcc%2C%20RelWithDebInfo%29)
+[![Linux x64](https://img.shields.io/github/actions/workflow/status/harikrishnan94/minnal/ci.yml?branch=main&job=Build%20%26%20Test%20%28ubuntu-25.04%2C%20gcc%2C%20RelWithDebInfo%29&label=Linux%20x64&logo=linux)](https://github.com/harikrishnan94/minnal/actions/workflows/ci.yml?query=branch%3Amain+Build%20%26%20Test%20%28ubuntu-25.04%2C%20gcc%2C%20RelWithDebInfo%29)
+[![Linux ARM](https://img.shields.io/github/actions/workflow/status/harikrishnan94/minnal/ci.yml?branch=main&job=Build%20%26%20Test%20%28ubuntu-25.04-arm%2C%20gcc%2C%20RelWithDebInfo%29&label=Linux%20ARM&logo=linux)](https://github.com/harikrishnan94/minnal/actions/workflows/ci.yml?query=branch%3Amain+Build%20%26%20Test%20%28ubuntu-25.04-arm%2C%20gcc%2C%20RelWithDebInfo%29)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-blue)](https://www.postgresql.org/)
 

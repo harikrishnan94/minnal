@@ -19,9 +19,9 @@ jobs:
       matrix:
         build_type: [Debug, RelWithDebInfo]
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-25.04
             compiler: gcc-15
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-25.04-arm
             compiler: gcc-15
           - os: macos-latest
             compiler: clang-21
@@ -137,7 +137,7 @@ jobs:
 
   static-analysis:
     name: Static Analysis (clang-format, clang-tidy)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-25.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -255,7 +255,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm]
+        os: [ubuntu-25.04, ubuntu-25.04-arm]
         sanitizer: [asan, tsan, ubsan]
     steps:
       - name: Checkout
@@ -317,7 +317,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm]
+        os: [ubuntu-25.04, ubuntu-25.04-arm]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
