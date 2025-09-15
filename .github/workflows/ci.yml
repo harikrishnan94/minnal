@@ -17,27 +17,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
-        compiler: [gcc]
         build_type: [Debug, RelWithDebInfo]
+        include:
+          - os: ubuntu-24.04
+            compiler: gcc-15
+          - os: ubuntu-24.04-arm
+            compiler: gcc-15
+          - os: macos-latest
+            compiler: clang-21
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up LLVM (Clang 20)
-        if: matrix.compiler == 'clang'
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: "20"
-
       - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'
-        shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y \
             ninja-build ccache jq lcov gcovr software-properties-common wget gnupg lsb-release
+          # If gcc-15 isn’t present, add the toolchain PPA:
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y gcc-15 g++-15 libasan8 libtsan2 libubsan1
           # Add PGDG repo to get PostgreSQL 17
           sudo install -d -m 0755 /usr/share/keyrings
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
@@ -54,8 +56,9 @@ jobs:
         run: |
           set -euo pipefail
           brew update
-          brew install ninja ccache jq postgresql@17
+          brew install ninja ccache jq postgresql@17 llvm@21
           echo "$(brew --prefix ccache)/libexec" >> $GITHUB_PATH
+          echo "$(brew --prefix llvm@21)/bin" >> $GITHUB_PATH
 
       - name: Locate pg_config (Linux/macOS)
         shell: bash
@@ -92,11 +95,19 @@ jobs:
           ccache --zero-stats || true
           ccache --max-size=500M || true
           EXTRA_CFG+=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+          # Select compiler per-OS: GCC 15 on Linux, Clang 21 on macOS
+          CC_BIN="gcc-15"
+          CXX_BIN="g++-15"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            CC_BIN="$(brew --prefix llvm@21)/bin/clang"
+            CXX_BIN="$(brew --prefix llvm@21)/bin/clang++"
+          fi
           cmake -S . -B build \
             -G "${CMAKE_GENERATOR}" \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DPG_CONFIG="${PG_CONFIG}" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_C_COMPILER="${CC_BIN}" -DCMAKE_CXX_COMPILER="${CXX_BIN}" \
             "${EXTRA_CFG[@]}"
 
       - name: Build
@@ -126,7 +137,7 @@ jobs:
 
   static-analysis:
     name: Static Analysis (clang-format, clang-tidy)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -244,7 +255,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
         sanitizer: [asan, tsan, ubsan]
     steps:
       - name: Checkout
@@ -255,7 +266,12 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y ninja-build ccache software-properties-common wget gnupg lsb-release
+          sudo apt-get install -y \
+            ninja-build ccache jq lcov gcovr software-properties-common wget gnupg lsb-release
+          # If gcc-15 isn’t present, add the toolchain PPA:
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y gcc-15 g++-15 libasan8 libtsan2 libubsan1
           # Add PGDG repo to get PostgreSQL 17
           sudo install -d -m 0755 /usr/share/keyrings
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
@@ -281,6 +297,7 @@ jobs:
             -G "${CMAKE_GENERATOR}" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_COMPILER="gcc-15" -DCMAKE_CXX_COMPILER="g++-15" \
             "${EXTRA_FLAGS[@]}"
 
       - name: Build (sanitizer)
@@ -300,7 +317,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -310,7 +327,12 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y ninja-build ccache gcc g++ lcov gcovr software-properties-common wget gnupg lsb-release
+          sudo apt-get install -y \
+            ninja-build ccache jq lcov gcovr software-properties-common wget gnupg lsb-release
+          # If gcc-15 isn’t present, add the toolchain PPA:
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y gcc-15 g++-15 libasan8 libtsan2 libubsan1
           # Add PGDG repo to get PostgreSQL 17
           sudo install -d -m 0755 /usr/share/keyrings
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
@@ -329,6 +351,7 @@ jobs:
             -G "${CMAKE_GENERATOR}" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_COMPILER="gcc-15" -DCMAKE_CXX_COMPILER="g++-15" \
             -DCMAKE_C_FLAGS="--coverage" \
             -DCMAKE_CXX_FLAGS="--coverage" \
             -DCMAKE_EXE_LINKER_FLAGS="--coverage" \

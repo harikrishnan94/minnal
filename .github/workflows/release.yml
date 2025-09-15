@@ -21,10 +21,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            compiler: gcc
+          - os: ubuntu-24.04
+            compiler: gcc-15
           - os: macos-latest
-            compiler: gcc
+            compiler: clang-21
 
     steps:
       - name: Checkout
@@ -37,6 +37,10 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y ninja-build ccache build-essential cmake software-properties-common wget gnupg lsb-release
+          # If gcc-15 isn’t present, add the toolchain PPA:
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y gcc-15 g++-15 libasan8 libtsan2 libubsan1
           # Add PGDG repo to get PostgreSQL 17
           sudo install -d -m 0755 /usr/share/keyrings
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
@@ -53,8 +57,9 @@ jobs:
         run: |
           set -euo pipefail
           brew update
-          brew install ninja ccache cmake postgresql@17
+          brew install ninja ccache cmake postgresql@17 llvm@21
           echo "$(brew --prefix ccache)/libexec" >> $GITHUB_PATH
+          echo "$(brew --prefix llvm@21)/bin" >> $GITHUB_PATH
 
       - name: Locate pg_config (Linux/macOS)
         shell: bash
@@ -83,11 +88,19 @@ jobs:
           if [[ "$RUNNER_OS" != "Windows" ]]; then
             EXTRA_CFG+=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
           fi
+          # Select compiler per-OS: GCC 15 on Linux, Clang 21 on macOS
+          CC_BIN="gcc-15"
+          CXX_BIN="g++-15"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            CC_BIN="$(brew --prefix llvm@21)/bin/clang"
+            CXX_BIN="$(brew --prefix llvm@21)/bin/clang++"
+          fi
           cmake -S . -B build \
             -G "${CMAKE_GENERATOR}" \
             -DCMAKE_BUILD_TYPE=Release \
             -DMINNAL_ENABLE_IPO=ON \
             -DPG_CONFIG="${PG_CONFIG}" \
+            -DCMAKE_C_COMPILER="${CC_BIN}" -DCMAKE_CXX_COMPILER="${CXX_BIN}" \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             "${EXTRA_CFG[@]}"
 
