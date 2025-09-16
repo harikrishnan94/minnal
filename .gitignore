@@ -16,6 +16,7 @@
 !engineering-plan-v1.md
 !mvcc-lsn-design.md
 !engine/RPC.md
+!engine/vector_patch_overlay.md
 
 ############################################
 # Directory traversal: only open engine/, extension/, cmake/, .github
