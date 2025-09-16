@@ -13,18 +13,10 @@ target_include_directories(minnal_engine
 target_link_libraries(minnal_engine
   PRIVATE
     minnal_engine_warnings
+    minnal_sanitizers
     CapnProto::capnp
     CapnProto::kj
 )
-
-# Apply engine-specific sanitizer flags if provided via ENG_SANITIZERS (comma-separated list)
-if(DEFINED ENG_SANITIZERS AND NOT ENG_SANITIZERS STREQUAL "")
-  string(REPLACE "," ";" _eng_san_list "${ENG_SANITIZERS}")
-  string(JOIN "," _eng_san_join ${_eng_san_list})
-  set(_eng_san_flag "-fsanitize=${_eng_san_join}")
-  target_compile_options(minnal_engine PRIVATE ${_eng_san_flag} -fno-omit-frame-pointer)
-  target_link_options(minnal_engine PRIVATE ${_eng_san_flag})
-endif()
 
 set_target_properties(minnal_engine PROPERTIES
   OUTPUT_NAME "minnal-engine"

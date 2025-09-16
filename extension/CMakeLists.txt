@@ -51,16 +51,6 @@ target_compile_definitions(${EXT_NAME}
   PRIVATE MINNAL_VERSION=\"${PROJECT_VERSION}\"
 )
 
-# Apply extension-specific sanitizer flags
-# EXT_SANITIZERS is a comma-separated list, e.g., "address" or "address,undefined"
-if(DEFINED EXT_SANITIZERS AND NOT EXT_SANITIZERS STREQUAL "")
-  string(REPLACE "," ";" _ext_san_list "${EXT_SANITIZERS}")
-  string(JOIN "," _ext_san_join ${_ext_san_list})
-  set(_ext_san_flag "-fsanitize=${_ext_san_join}")
-  target_compile_options(${EXT_NAME} PRIVATE ${_ext_san_flag} -fno-omit-frame-pointer)
-  target_link_options(${EXT_NAME} PRIVATE ${_ext_san_flag})
-endif()
-
 # Install the module into PostgreSQL's pkglibdir (provided/derived by Postgres.cmake)
 if(NOT DEFINED PG_PKGLIBDIR OR NOT DEFINED PG_SHAREDIR)
   message(FATAL_ERROR "PG_PKGLIBDIR/PG_SHAREDIR were not defined. Ensure cmake/Postgres.cmake is included at the top level before add_subdirectory(extension).")
