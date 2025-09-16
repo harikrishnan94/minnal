@@ -85,7 +85,7 @@ Details: see [mvcc-lsn-design.md](./mvcc-lsn-design.md).
 Requirements:
 - PostgreSQL 15+ with an existing installation on your system
 - You MUST provide the path to `pg_config` using `-DPG_CONFIG=/path/to/pg_config`
-- Modern C++ compiler (GCC 13+ / Clang 17+), supporting C++23
+- Modern C++ compiler (GCC 14+ / Clang 20+), supporting C++23
 - CMake (3.27+)
 
 ### PostgreSQL dependency
@@ -99,10 +99,9 @@ Example:
 The build validates that the version is 15+ and uses its headers/flags.
 
 Sanitizers:
-- Sanitizers are split per-target:
-  - `EXT_SANITIZERS` (string, comma-separated) applies to the extension shared library only.
-    Example values: `address`, `address,undefined`, `thread`, `leak`
-  - `ENG_SANITIZERS` (string, comma-separated) applies only to the engine executable.
+- Engine-only sanitizer toggles:
+  - Enable exactly one of: `-DMINNAL_ENABLE_ENG_ASAN=ON`, `-DMINNAL_ENABLE_ENG_TSAN=ON`, `-DMINNAL_ENABLE_ENG_UBSAN=ON`, `-DMINNAL_ENABLE_ENG_MSAN=ON`
+  - These apply only to engine binary, tests. The extension inherits compile flags from PostgreSQL and should not set conflicting sanitizers.
 
 ### Build
 
@@ -118,8 +117,7 @@ cmake -S . -B build -DPG_CONFIG=/path/to/pg_config -DCMAKE_BUILD_TYPE=RelWithDeb
 # Optional: enable sanitizers per-target
 cmake -S . -B build \
   -DPG_CONFIG=/path/to/pg_config \
-  -DEXT_SANITIZERS="address,undefined" \
-  -DENG_SANITIZERS="address" \
+  -DMINNAL_ENABLE_ENG_ASAN=ON \
   -DCMAKE_BUILD_TYPE=Debug
 ```
 

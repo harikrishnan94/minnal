@@ -1,102 +1,350 @@
 {
-    "version": 10,
-    "cmakeMinimumRequired": {
-        "major": 3,
-        "minor": 27,
-        "patch": 0
+  "version": 10,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_CXX_STANDARD": "23",
+        "MINNAL_WARNINGS_AS_ERRORS": "ON",
+        "MINNAL_ENABLE_UNITY": "OFF",
+        "MINNAL_ENABLE_IPO": "OFF",
+        "MINNAL_ENABLE_ENG_ASAN": "OFF",
+        "MINNAL_ENABLE_ENG_TSAN": "OFF",
+        "MINNAL_ENABLE_ENG_UBSAN": "OFF",
+        "MINNAL_ENABLE_ENG_MSAN": "OFF"
+      }
     },
-    "configurePresets": [
-        {
-            "name": "base",
-            "hidden": true,
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_CXX_STANDARD": "23",
-                "MINNAL_WARNINGS_AS_ERRORS": "ON",
-                "MINNAL_ENABLE_UNITY": "OFF",
-                "MINNAL_ENABLE_IPO": "OFF",
-                "MINNAL_ENABLE_ASAN": "OFF",
-                "MINNAL_ENABLE_TSAN": "OFF",
-                "MINNAL_ENABLE_UBSAN": "OFF"
-            }
-        },
-        {
-            "name": "clang-debug",
-            "displayName": "Clang Debug",
-            "inherits": "base",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_COMPILER": "clang++"
-            },
-            "environment": {
-                "CC": "clang",
-                "CXX": "clang++"
-            }
-        },
-        {
-            "name": "clang-asan",
-            "displayName": "Clang ASan",
-            "inherits": "clang-debug",
-            "cacheVariables": {
-                "MINNAL_ENABLE_ASAN": "ON"
-            }
-        },
-        {
-            "name": "clang-tsan",
-            "displayName": "Clang TSan",
-            "inherits": "clang-debug",
-            "cacheVariables": {
-                "MINNAL_ENABLE_TSAN": "ON"
-            }
-        },
-        {
-            "name": "gcc-debug",
-            "displayName": "GCC Debug",
-            "inherits": "base",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++"
-            },
-            "environment": {
-                "CC": "gcc",
-                "CXX": "g++"
-            }
-        },
-        {
-            "name": "release",
-            "displayName": "Release (IPO/LTO)",
-            "inherits": "base",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "MINNAL_ENABLE_IPO": "ON"
-            }
-        }
-    ],
-    "buildPresets": [
-        {
-            "name": "build",
-            "configurePreset": "clang-debug"
-        },
-        {
-            "name": "build-asan",
-            "configurePreset": "clang-asan"
-        },
-        {
-            "name": "build-release",
-            "configurePreset": "release"
-        }
-    ],
-    "testPresets": [
-        {
-            "name": "test",
-            "configurePreset": "clang-debug",
-            "output": {
-                "outputOnFailure": true
-            }
-        }
-    ]
+    {
+      "name": "debug",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "toolchain-gcc",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      },
+      "environment": {
+        "CC": "gcc",
+        "CXX": "g++"
+      }
+    },
+    {
+      "name": "toolchain-clang-libstdcxx",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      },
+      "environment": {
+        "CC": "clang",
+        "CXX": "clang++",
+        "PATH": "$env{LLVM_TOOLCHAIN_PREFIX}/bin:$env{LLVM_HOME}/bin:$env{LLVM_ROOT}/bin:$env{HOMEBREW_PREFIX}/opt/llvm/bin:$penv{PATH}"
+      }
+    },
+    {
+      "name": "toolchain-clang-libcxx",
+      "hidden": true,
+      "inherits": "toolchain-clang-libstdcxx",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "$env{CXXFLAGS}",
+        "CMAKE_EXE_LINKER_FLAGS": "$env{LDFLAGS}",
+        "CMAKE_SHARED_LINKER_FLAGS": "$env{LDFLAGS}",
+        "CMAKE_MODULE_LINKER_FLAGS": "$env{LDFLAGS}"
+      },
+      "environment": {
+        "PATH": "$env{LLVM_TOOLCHAIN_PREFIX}/bin:$env{LLVM_HOME}/bin:$env{LLVM_ROOT}/bin:$env{HOMEBREW_PREFIX}/opt/llvm/bin:$penv{PATH}",
+        "CPATH": "$env{LLVM_TOOLCHAIN_PREFIX}/include/c++/v1:$env{LLVM_TOOLCHAIN_PREFIX}/include:$env{LLVM_HOME}/include:$env{LLVM_ROOT}/include:$env{HOMEBREW_PREFIX}/opt/llvm/include:$penv{CPATH}",
+        "LIBRARY_PATH": "$env{LLVM_TOOLCHAIN_PREFIX}/lib:$env{LLVM_HOME}/lib:$env{LLVM_ROOT}/lib:$env{HOMEBREW_PREFIX}/opt/llvm/lib:$penv{LIBRARY_PATH}",
+        "LD_LIBRARY_PATH": "$env{LLVM_TOOLCHAIN_PREFIX}/lib:$env{LLVM_HOME}/lib:$env{LLVM_ROOT}/lib:$env{HOMEBREW_PREFIX}/opt/llvm/lib:$penv{LD_LIBRARY_PATH}",
+        "DYLD_LIBRARY_PATH": "$env{LLVM_TOOLCHAIN_PREFIX}/lib:$env{LLVM_HOME}/lib:$env{LLVM_ROOT}/lib:$env{HOMEBREW_PREFIX}/opt/llvm/lib:$penv{DYLD_LIBRARY_PATH}"
+      }
+    },
+    {
+      "name": "sanitizer-asan",
+      "hidden": true,
+      "cacheVariables": {
+        "MINNAL_ENABLE_ENG_ASAN": "ON"
+      }
+    },
+    {
+      "name": "sanitizer-ubsan",
+      "hidden": true,
+      "cacheVariables": {
+        "MINNAL_ENABLE_ENG_UBSAN": "ON"
+      }
+    },
+    {
+      "name": "sanitizer-tsan",
+      "hidden": true,
+      "cacheVariables": {
+        "MINNAL_ENABLE_ENG_TSAN": "ON"
+      }
+    },
+    {
+      "name": "sanitizer-msan",
+      "hidden": true,
+      "cacheVariables": {
+        "MINNAL_ENABLE_ENG_MSAN": "ON"
+      }
+    },
+    {
+      "name": "default",
+      "displayName": "Default (Clang + libc++)",
+      "description": "Debug build using Clang with libc++ runtime",
+      "inherits": [
+        "debug",
+        "toolchain-clang-libcxx"
+      ]
+    },
+    {
+      "name": "gcc",
+      "displayName": "GCC Debug",
+      "description": "Debug build with GCC toolchain",
+      "inherits": [
+        "debug",
+        "toolchain-gcc"
+      ],
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "gcc-asan",
+      "displayName": "GCC ASan",
+      "description": "Debug build with GCC enabling AddressSanitizer",
+      "inherits": [
+        "gcc",
+        "sanitizer-asan"
+      ],
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "gcc-ubsan",
+      "displayName": "GCC UBSan",
+      "description": "Debug build with GCC enabling UndefinedBehaviorSanitizer",
+      "inherits": [
+        "gcc",
+        "sanitizer-ubsan"
+      ],
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "gcc-tsan",
+      "displayName": "GCC TSan",
+      "description": "Debug build with GCC enabling ThreadSanitizer",
+      "inherits": [
+        "gcc",
+        "sanitizer-tsan"
+      ],
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "clang-libstdcxx",
+      "displayName": "Clang + libstdc++",
+      "description": "Debug build using Clang with libstdc++ runtime",
+      "inherits": [
+        "debug",
+        "toolchain-clang-libstdcxx"
+      ],
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "clang-libstdcxx-asan",
+      "displayName": "Clang + libstdc++ ASan",
+      "description": "Debug build enabling AddressSanitizer with Clang + libstdc++",
+      "inherits": [
+        "clang-libstdcxx",
+        "sanitizer-asan"
+      ],
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "clang-libstdcxx-ubsan",
+      "displayName": "Clang + libstdc++ UBSan",
+      "description": "Debug build enabling UndefinedBehaviorSanitizer with Clang + libstdc++",
+      "inherits": [
+        "clang-libstdcxx",
+        "sanitizer-ubsan"
+      ],
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "clang-libstdcxx-tsan",
+      "displayName": "Clang + libstdc++ TSan",
+      "description": "Debug build enabling ThreadSanitizer with Clang + libstdc++",
+      "inherits": [
+        "clang-libstdcxx",
+        "sanitizer-tsan"
+      ],
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "clang-libstdcxx-msan",
+      "displayName": "Clang + libstdc++ MSan",
+      "description": "Debug build enabling MemorySanitizer with Clang + libstdc++",
+      "inherits": [
+        "clang-libstdcxx",
+        "sanitizer-msan"
+      ],
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "clang-libcxx",
+      "displayName": "Clang + libc++",
+      "description": "Debug build using Clang with libc++ runtime",
+      "inherits": [
+        "debug",
+        "toolchain-clang-libcxx"
+      ],
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "clang-libcxx-asan",
+      "displayName": "Clang + libc++ ASan",
+      "description": "Debug build enabling AddressSanitizer with Clang + libc++",
+      "inherits": [
+        "clang-libcxx",
+        "sanitizer-asan"
+      ],
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "clang-libcxx-ubsan",
+      "displayName": "Clang + libc++ UBSan",
+      "description": "Debug build enabling UndefinedBehaviorSanitizer with Clang + libc++",
+      "inherits": [
+        "clang-libcxx",
+        "sanitizer-ubsan"
+      ],
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "clang-libcxx-tsan",
+      "displayName": "Clang + libc++ TSan",
+      "description": "Debug build enabling ThreadSanitizer with Clang + libc++",
+      "inherits": [
+        "clang-libcxx",
+        "sanitizer-tsan"
+      ],
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "clang-libcxx-msan",
+      "displayName": "Clang + libc++ MSan",
+      "description": "Debug build enabling MemorySanitizer with Clang + libc++ (Linux only)",
+      "inherits": [
+        "clang-libcxx",
+        "sanitizer-msan"
+      ],
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build",
+      "configurePreset": "default"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
 }

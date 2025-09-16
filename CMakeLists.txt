@@ -7,6 +7,22 @@ project(minnal
   DESCRIPTION "Minnal: PostgreSQL-accelerated analytics engine (extension + engine)"
   LANGUAGES C CXX)
 
+# Enforce supported compiler versions early to give clear diagnostics
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14)
+    message(FATAL_ERROR
+      "Minnal requires GCC 14 or newer (found ${CMAKE_CXX_COMPILER_VERSION}).")
+  endif()
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 20)
+    message(FATAL_ERROR
+      "Minnal requires Clang 20 or newer (found ${CMAKE_CXX_COMPILER_VERSION}).")
+  endif()
+else()
+  message(FATAL_ERROR
+    "Minnal requires GCC >= 14 or Clang >= 20 (detected ${CMAKE_CXX_COMPILER_ID}).")
+endif()
+
 # Global language standard
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,9 +31,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(MINNAL_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 option(MINNAL_ENABLE_UNITY "Enable unity builds (faster builds)" OFF)
 option(MINNAL_ENABLE_IPO "Enable Interprocedural Optimization (LTO)" OFF)
-option(MINNAL_ENABLE_ASAN "Enable AddressSanitizer" OFF)
-option(MINNAL_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
-option(MINNAL_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+option(MINNAL_ENABLE_ENG_ASAN "Enable AddressSanitizer for engine" OFF)
+option(MINNAL_ENABLE_ENG_TSAN "Enable ThreadSanitizer for engine" OFF)
+option(MINNAL_ENABLE_ENG_UBSAN "Enable UndefinedBehaviorSanitizer for engine" OFF)
+option(MINNAL_ENABLE_ENG_MSAN "Enable MemorySanitizer for engine" OFF)
 
 # Modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -33,13 +50,6 @@ minnal_set_project_warnings(
   WARNINGS_AS_ERRORS ${MINNAL_WARNINGS_AS_ERRORS}
 )
 
-# Sanitizers (mutually exclusive via module guard)
-minnal_enable_sanitizers(
-  ASAN ${MINNAL_ENABLE_ASAN}
-  TSAN ${MINNAL_ENABLE_TSAN}
-  UBSAN ${MINNAL_ENABLE_UBSAN}
-)
-
 # IPO/LTO
 minnal_enable_ipo(${MINNAL_ENABLE_IPO})
 
@@ -49,14 +59,21 @@ if(MINNAL_ENABLE_UNITY)
 endif()
 
 # Subprojects
-# Sanitizer split options
-set(EXT_SANITIZERS "" CACHE STRING "Comma-separated sanitizers for extension (e.g., address,undefined).")
-set(ENG_SANITIZERS "" CACHE STRING "Comma-separated sanitizers for engine (e.g., address,undefined).")
 
 # Cap'n Proto dependency (centralized)
 include(CapnProto)
 
 add_subdirectory(extension)
+
+# Enable sanitizers for engine only (tests/tools), not the Postgres extension
+# The extension inherits flags from Postgres; avoid conflicting sanitizer flags.
+minnal_enable_sanitizers(
+  ASAN ${MINNAL_ENABLE_ENG_ASAN}
+  TSAN ${MINNAL_ENABLE_ENG_TSAN}
+  UBSAN ${MINNAL_ENABLE_ENG_UBSAN}
+  MSAN ${MINNAL_ENABLE_ENG_MSAN}
+)
+
 add_subdirectory(engine)
 
 # Packaging metadata (basic)

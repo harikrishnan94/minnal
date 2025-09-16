@@ -1,3 +1,4 @@
+# Copyright (c) Harikrishnan Prabakaran (harikrishnanprabakaran@gmail.com)
 ############################################
 # Baseline: ignore everything
 ############################################
@@ -28,9 +29,8 @@
 !/cmake/**/
 !/.github/
 !/.github/workflows
-!/.github/actions/
-!/.github/actions/**/
-
+!/scripts
+!/scripts/lib
 
 ############################################
 # CMake: keep root CMakeLists, and CMake files in /cmake, /extension, /engine
@@ -70,5 +70,5 @@
 # Github Actions
 ############################################
 !/.github/workflows/*.yml
-!/.github/actions/**/*.yml
-!/.github/actions/**/*.yaml
+!/scripts/*.sh
+!/scripts/lib/*.sh
