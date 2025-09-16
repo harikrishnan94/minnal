@@ -1,4 +1,4 @@
-# Minnal MVCC Using LSN — Design and Implementation
+# Minnal MVCC Using PostgreSQL Commit LSN — Design and Implementation
 
 Status: Draft
 Scope: MVP targets single‑statement READ COMMITTED (autocommit) offload. This document also captures the general approach for future multi‑statement transactions.
