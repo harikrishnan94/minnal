@@ -1,4 +1,4 @@
-# Minnal RPC
+# Minnal Extension and Engine RPC methods
 
 Status: Draft
 

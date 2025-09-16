@@ -46,7 +46,7 @@ Minnal achieves PostgreSQL-equivalent visibility for offloaded single-statement 
 - Engine: stores row versions with (begin_lsn, end_lsn) and evaluates visibility at a per-statement boundary B.
 - Extension: computes B from the backend’s snapshot and WAL metadata, then ensures the engine has applied commits up to B before serving results.
 
-Details: see [mvcc-lsn-design.md](./mvcc-lsn-design.md).
+Details: see [MVCC Design](./docs/commit_lsn_based_mvcc.md).
 
 ---
 

@@ -14,10 +14,6 @@
 !AGENTS.md
 !README.md
 !LICENSE
-!engineering-plan-v1.md
-!mvcc-lsn-design.md
-!engine/RPC.md
-!engine/vector_patch_overlay.md
 
 ############################################
 # Directory traversal: only open engine/, extension/, cmake/, .github
@@ -31,6 +27,7 @@
 !/.github/workflows
 !/scripts
 !/scripts/lib
+!docs/
 
 ############################################
 # CMake: keep root CMakeLists, and CMake files in /cmake, /extension, /engine
@@ -72,3 +69,8 @@
 !/.github/workflows/*.yml
 !/scripts/*.sh
 !/scripts/lib/*.sh
+
+############################################
+# Design Documents
+############################################
+!docs/*.md
